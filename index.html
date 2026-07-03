@@ -75,6 +75,17 @@
     transition: transform .1s;
   }
   .cell:hover { transform: scale(1.06); }
+  .cell-flag { position:absolute; top:2px; right:2px; font-size:9px; font-weight:700; color:#fff; padding:0 3px; border-radius:4px; line-height:1.4; }
+  .cell-round { position:absolute; bottom:1px; left:3px; font-size:9px; font-weight:800; opacity:.85; }
+  /* 待我審閱提醒區 */
+  .todo-banner { margin: 0 0 14px; background: #EAF3FF; border: 1px solid #B9D6F5; border-radius: 14px; padding: 14px 16px; }
+  .todo-title { font-size: 15px; font-weight: 800; color: #0E4E92; display:flex; align-items:center; gap:8px; }
+  .todo-count { background:#2B7DD9; color:#fff; font-size:12px; padding:1px 9px; border-radius:99px; }
+  .todo-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .todo-chip { background:#fff; border:1px solid #B9D6F5; border-radius:99px; padding:6px 12px; font-size:13px; color:#1A3A5C; cursor:pointer; display:flex; align-items:center; gap:6px; }
+  .todo-chip:hover { background:#DCEBFB; }
+  .todo-chip .wait { color:#C0392B; font-weight:700; }
+  .todo-empty { font-size:13px; color:#3E6890; margin-top:6px; }
   .empty-box {
     padding: 48px; text-align: center; border: 1px dashed #C9CFDC;
     border-radius: 16px; color: var(--ink-soft); background: var(--card);
@@ -143,28 +154,61 @@
 
 <main>
   <div id="loading">載入中…</div>
+  <div id="todoBanner"></div>
   <div id="content" style="display:none"></div>
   <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
     <button class="btn-ghost" id="archToggle" style="display:none;margin-top:16px" onclick="toggleArchived()"></button>
   </div>
   <p class="legend">
-    彩色格＝已完成・暗色格＝已越過但未填日期・虛線格＝尚未到達・🎤＝口試（白框強調）。<br>
-    左側色條：🟡 修業最後一年、🔴 已逾修業年限、🟢 論文完成。所有人看到的是同一份共享資料。
+    點格子可看該站的繳交/回覆來回、新增繳交或回覆。格子顏色：<b style="color:#2B7DD9">藍＝待我審閱</b>、<b style="color:#E08A2B">橘＝待學生修改</b>、彩色＝已通過（顯示定稿日）、灰＝未開始；右上小標「待審/待改」、左下 R2＝第二輪。<br>
+    左側色條：🟡 修業最後一年、🔴 已逾修業年限、🟢 論文完成。所有人看到的是同一份共享資料，僅將連結給你的學生。
   </p>
 </main>
 
-<!-- 日期輸入 -->
-<div class="overlay" id="dateOverlay" onclick="if(event.target===this)closeModals()">
-  <div class="modal">
-    <div class="colorbar" id="dateColorbar"></div>
-    <h3 id="dateStudent"></h3>
-    <p class="msub" id="dateMilestone"></p>
-    <label>完成日期</label>
-    <input type="date" id="dateInput">
-    <div class="btnrow">
-      <button class="btn-save" id="dateSaveBtn" onclick="saveDate()">儲存日期</button>
-      <button class="btn-danger-ghost" id="dateClearBtn" onclick="clearDate()" style="display:none">清除</button>
-      <button class="btn-cancel" onclick="closeModals()">取消</button>
+<!-- 審閱來回視窗 -->
+<div class="overlay" id="reviewOverlay" onclick="if(event.target===this)closeModals()">
+  <div class="modal" style="max-width:460px">
+    <div class="colorbar" id="rvColorbar"></div>
+    <h3 id="rvStudent"></h3>
+    <p class="msub" id="rvMilestone"></p>
+
+    <!-- 歷史來回 -->
+    <div id="rvRounds" style="margin-top:14px; max-height:280px; overflow-y:auto"></div>
+
+    <!-- 老師：對最新一輪回覆 -->
+    <div id="rvReplyBox" style="display:none; margin-top:14px; padding-top:14px; border-top:1px solid var(--line)">
+      <div style="font-size:13px; font-weight:700; color:var(--ink)">回覆最新一版</div>
+      <label>回覆日期</label>
+      <input type="date" id="rvReplyDate">
+      <label>審閱結果</label>
+      <div id="rvResultBtns" style="display:flex; flex-wrap:wrap; gap:6px"></div>
+      <label>意見（選填）</label>
+      <textarea id="rvNote" rows="2" style="width:100%; resize:vertical; padding:8px 12px; border:1px solid #D6DBE8; border-radius:10px; font-family:inherit; font-size:14px; color:var(--ink)"></textarea>
+      <button class="btn-save" id="rvReplyBtn" style="width:100%; margin-top:12px; background:var(--royal)" onclick="submitReply()">送出回覆</button>
+    </div>
+
+    <!-- 學生：新增繳交 -->
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line)">
+      <div style="font-size:13px; font-weight:700; color:var(--ink)">學生：新增一次繳交</div>
+      <div style="display:flex; gap:8px; margin-top:8px; align-items:center">
+        <input type="date" id="rvSubmitDate" style="flex:1">
+        <button class="btn-primary" onclick="submitSubmission()">＋ 繳交</button>
+      </div>
+    </div>
+
+    <!-- 手動設定定稿/通過日期 -->
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line)">
+      <div style="font-size:13px; font-weight:700; color:var(--ink)" id="rvManualTitle">手動設定通過/定稿日期</div>
+      <p class="msub" id="rvManualHint" style="font-size:12px; margin-top:2px"></p>
+      <div style="display:flex; gap:8px; margin-top:8px; align-items:center">
+        <input type="date" id="rvManualDate" style="flex:1">
+        <button class="btn-save" style="background:hsl(150 60% 42%)" onclick="submitManualDate()">標記完成</button>
+        <button class="btn-danger-ghost" id="rvClearManual" onclick="clearManualDate()" style="display:none">清除</button>
+      </div>
+    </div>
+
+    <div class="btnrow" style="margin-top:16px">
+      <button class="btn-cancel" style="flex:1" onclick="closeModals()">關閉</button>
     </div>
   </div>
 </div>
@@ -198,18 +242,7 @@
   </div>
 </div>
 
-<!-- 通行碼 -->
-<div class="overlay" id="codeOverlay">
-  <div class="modal">
-    <h3>輸入通行碼</h3>
-    <p class="msub">請輸入老師提供的通行碼以存取進度資料。</p>
-    <label>通行碼</label>
-    <input type="password" id="codeInput" onkeydown="if(event.key==='Enter')submitCode()">
-    <div class="btnrow">
-      <button class="btn-save" style="background:hsl(160 80% 55%)" onclick="submitCode()">進入</button>
-    </div>
-  </div>
-</div>
+<!-- 通行碼已移除 -->
 
 <script>
 /* ── 35 個關鍵里程碑 ── */
@@ -227,6 +260,34 @@ const N = MILESTONES.length;
 const ORAL = new Set(["提案口試","Final口試"]);
 const GROUPS = ["資管組","醫資組"];
 
+/* 草稿 → 通過後自動標定稿 的對應表 */
+const DRAFT_TO_FINAL = {
+  "第一章草稿":"第一章定稿",
+  "2.1草稿":"2.1定稿","2.2草稿":"2.2定稿","2.3草稿":"2.3定稿","2.4草稿":"2.4定稿",
+  "Proposal第三章草稿":"Proposal第三章定稿",
+  "Proposal第四章草稿":"Proposal第四章定稿",
+  "Proposal第五章草稿":"Proposal第五章定稿",
+  "Proposal後轉1-3草稿":"Proposal後轉1-3定稿",
+  "第四章草稿":"第四章定稿","第五章草稿":"第五章定稿",
+};
+/* 審閱結果選項 */
+const RESULTS = ["大修","底線回覆","追蹤修訂","通過"];
+const RESULT_COLOR = { "大修":"#C0392B","底線回覆":"#D97A2B","追蹤修訂":"#2B7DD9","通過":"#1E9E5A" };
+
+/* 取某站的審閱回合陣列 */
+const roundsOf = (s, name) => (s.reviews && s.reviews[name]) ? s.reviews[name] : [];
+/* 某站狀態：done(已通過/有定稿日) / review(學生已交待回) / revise(已回待學生改) / none */
+function cellStatus(s, name){
+  if (s.dates && s.dates[name]) return "done";
+  const rs = roundsOf(s, name);
+  if (!rs.length) return "none";
+  const last = rs[rs.length-1];
+  if (!last.reply) return "review";   // 最新一輪學生交了但老師還沒回
+  return "revise";                     // 老師已回，等學生下一版
+}
+/* 距今天數 */
+const daysSince = d => { if(!d) return 0; const ms = Date.now()-new Date(d+"T00:00:00").getTime(); return Math.max(0, Math.floor(ms/86400000)); };
+
 const hue = i => Math.round(i * 285 / (N - 1));
 const cellColor = i => `hsl(${hue(i)} 82% 58%)`;
 const dimColor  = i => `hsl(${hue(i)} 55% 86%)`;
@@ -237,7 +298,7 @@ const fmtShort = d => { if(!d) return ""; const p = d.split("-"); return `${+p[1
 const today = () => new Date().toISOString().slice(0,10);
 const curAcadYear = () => { const d = new Date(); const y = d.getFullYear()-1911; return d.getMonth()+1>=8 ? y : y-1; };
 const normYear = v => { const n = parseInt(v); if(!n) return null; return n>1911 ? n-1911 : n; };
-document.getElementById("subtitle").textContent = `${N} 個里程碑・目前為 ${curAcadYear()} 學年度・點擊格子輸入完成日期`;
+document.getElementById("subtitle").textContent = `${N} 個里程碑・目前為 ${curAcadYear()} 學年度・點擊格子管理繳交與審閱`;
 
 const limitInfo = s => {
   const ey = normYear(s.enrollYear);
@@ -254,10 +315,9 @@ const limitInfo = s => {
 let students = [];
 let sortMode = "newest";
 let showArchived = false;
-let editingCell = null;   // {id, mi}
 let editingInfoId = null;
 let deletingId = null;
-let accessCode = localStorage.getItem("thesis-code") || "";
+let reviewCtx = null;     // {id, mi} 目前開啟審閱視窗的格子
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -267,27 +327,15 @@ function showSaving(v){ $("savingDot").style.display = v ? "block" : "none"; }
 function showError(msg){ const b = $("errBanner"); b.textContent = msg; b.style.display = msg ? "block" : "none"; }
 
 async function apiGet(){
-  const res = await fetch(`${API_URL}?code=${encodeURIComponent(accessCode)}`);
+  const res = await fetch(API_URL);
   return res.json();
 }
 async function apiPost(action, payload){
   const res = await fetch(API_URL, {
     method: "POST",
-    body: JSON.stringify({ code: accessCode, action, payload }),
+    body: JSON.stringify({ action, payload }),
   });
   return res.json();
-}
-
-function requireCode(){
-  $("codeOverlay").classList.add("show");
-  setTimeout(()=>$("codeInput").focus(), 100);
-}
-async function submitCode(){
-  accessCode = $("codeInput").value.trim();
-  if (!accessCode) return;
-  localStorage.setItem("thesis-code", accessCode);
-  $("codeOverlay").classList.remove("show");
-  loadData();
 }
 
 async function loadData(){
@@ -295,17 +343,10 @@ async function loadData(){
     $("loading").textContent = "尚未設定 API_URL：請先在 index.html 中貼上 Apps Script 網址。";
     return;
   }
-  if (!accessCode){ requireCode(); return; }
   $("loading").style.display = "block";
   showError("");
   try {
     const data = await apiGet();
-    if (data.error === "unauthorized"){
-      localStorage.removeItem("thesis-code"); accessCode = "";
-      $("loading").style.display = "none";
-      requireCode();
-      return;
-    }
     students = data.students || [];
     render();
   } catch (e) {
@@ -319,10 +360,6 @@ async function doAction(action, payload){
   showSaving(true);
   try {
     const data = await apiPost(action, payload);
-    if (data.error === "unauthorized"){
-      localStorage.removeItem("thesis-code"); accessCode = "";
-      requireCode(); return;
-    }
     if (data.students){ students = data.students; render(); }
     showError("");
   } catch (e) {
@@ -351,28 +388,124 @@ function setSort(m){
 }
 function toggleArchived(){ showArchived = !showArchived; render(); }
 
-function openDateModal(id, mi){
-  editingCell = { id, mi };
+let rvSelectedResult = "";
+
+function openReviewModal(id, mi){
+  reviewCtx = { id, mi };
+  rvSelectedResult = "";
   const s = students.find(x=>x.id===id);
-  const existing = s && s.dates ? s.dates[MILESTONES[mi]] : null;
-  $("dateColorbar").style.background = cellColor(mi);
-  $("dateStudent").textContent = s ? s.name : "";
-  $("dateMilestone").textContent = `第 ${mi+1} 站・${MILESTONES[mi]}${ORAL.has(MILESTONES[mi]) ? " 🎤" : ""}`;
-  $("dateInput").value = existing || today();
-  $("dateSaveBtn").style.background = cellColor(mi);
-  $("dateClearBtn").style.display = existing ? "block" : "none";
-  $("dateOverlay").classList.add("show");
+  const name = MILESTONES[mi];
+  $("rvColorbar").style.background = cellColor(mi);
+  $("rvStudent").textContent = s ? s.name : "";
+  $("rvMilestone").textContent = `第 ${mi+1} 站・${name}${ORAL.has(name) ? " 🎤" : ""}`;
+
+  // 歷史來回
+  const rs = roundsOf(s, name);
+  let html = "";
+  if (!rs.length){
+    html = `<p class="msub" style="font-size:13px">尚無繳交紀錄。學生可於下方新增第一次繳交。</p>`;
+  } else {
+    rs.forEach((r, ri) => {
+      const resultTag = r.result
+        ? `<span style="font-size:12px;font-weight:700;color:#fff;background:${RESULT_COLOR[r.result]||'#888'};padding:1px 8px;border-radius:99px">${r.result}</span>`
+        : `<span style="font-size:12px;font-weight:700;color:#fff;background:#2B7DD9;padding:1px 8px;border-radius:99px">待審閱</span>`;
+      html += `<div style="background:#F7F8FB;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;font-weight:700;color:var(--ink)">第 ${ri+1} 輪</span>
+          ${resultTag}
+        </div>
+        <div style="font-size:13px;color:var(--ink80);margin-top:4px">📤 繳交：${r.submit||"—"}${r.reply?`　📥 回覆：${r.reply}`:"　<span style='color:#2B7DD9'>（等待回覆）</span>"}</div>
+        ${r.note?`<div style="font-size:13px;color:var(--ink80);margin-top:4px">💬 ${esc(r.note)}</div>`:""}
+        <button class="iconbtn" style="font-size:12px;margin-top:4px;color:#B84A4A" onclick="deleteRound('${id}',${mi},${ri})">刪除此輪</button>
+      </div>`;
+    });
+  }
+  $("rvRounds").innerHTML = html;
+
+  // 老師回覆區：只在「最新一輪已交、未回覆」時出現
+  const st = cellStatus(s, name);
+  const replyBox = $("rvReplyBox");
+  if (st === "review"){
+    replyBox.style.display = "block";
+    $("rvReplyDate").value = today();
+    $("rvNote").value = "";
+    // 結果按鈕
+    $("rvResultBtns").innerHTML = RESULTS.map(r =>
+      `<button type="button" class="result-btn" data-r="${r}" onclick="pickResult('${r}')"
+        style="padding:6px 12px;border-radius:8px;border:1.5px solid ${RESULT_COLOR[r]};background:#fff;color:${RESULT_COLOR[r]};font-size:13px;font-weight:600;font-family:inherit">${r}</button>`
+    ).join("");
+  } else {
+    replyBox.style.display = "none";
+  }
+
+  // 學生繳交預設日期
+  $("rvSubmitDate").value = today();
+
+  // 手動設定定稿/通過
+  const finalName = DRAFT_TO_FINAL[name] || name;
+  const hint = DRAFT_TO_FINAL[name]
+    ? `此站按「通過」會自動標記「${finalName}」；也可在此手動設定其日期。`
+    : `此站無對應定稿站，於此手動設定通過/完成日期。`;
+  $("rvManualHint").textContent = hint;
+  const curDate = s.dates ? s.dates[finalName] : null;
+  $("rvManualDate").value = curDate || today();
+  $("rvClearManual").style.display = curDate ? "inline-block" : "none";
+
+  $("reviewOverlay").classList.add("show");
 }
-function saveDate(){
-  if (!editingCell) return;
-  const v = $("dateInput").value;
-  if (!v) return;
-  doAction("setDate", { id: editingCell.id, milestone: MILESTONES[editingCell.mi], date: v });
+
+function pickResult(r){
+  rvSelectedResult = r;
+  document.querySelectorAll(".result-btn").forEach(b=>{
+    const on = b.dataset.r === r;
+    const col = RESULT_COLOR[r];
+    if (on){ b.style.background = col; b.style.color = "#fff"; }
+    else { const c = RESULT_COLOR[b.dataset.r]; b.style.background = "#fff"; b.style.color = c; }
+  });
+}
+
+function submitSubmission(){
+  if (!reviewCtx) return;
+  const d = $("rvSubmitDate").value;
+  if (!d) return;
+  const name = MILESTONES[reviewCtx.mi];
+  doAction("addSubmission", { id: reviewCtx.id, milestone: name, date: d });
   closeModals();
 }
-function clearDate(){
-  if (!editingCell) return;
-  doAction("clearDate", { id: editingCell.id, milestone: MILESTONES[editingCell.mi] });
+
+function submitReply(){
+  if (!reviewCtx) return;
+  const name = MILESTONES[reviewCtx.mi];
+  const reply = $("rvReplyDate").value;
+  if (!reply){ alert("請填回覆日期"); return; }
+  if (!rvSelectedResult){ alert("請選擇審閱結果"); return; }
+  const finalName = DRAFT_TO_FINAL[name] || name;
+  doAction("replyReview", {
+    id: reviewCtx.id, milestone: name,
+    reply, result: rvSelectedResult, note: $("rvNote").value.trim(),
+    finalMilestone: finalName, passDate: reply,
+  });
+  closeModals();
+}
+
+function submitManualDate(){
+  if (!reviewCtx) return;
+  const name = MILESTONES[reviewCtx.mi];
+  const finalName = DRAFT_TO_FINAL[name] || name;
+  const d = $("rvManualDate").value;
+  if (!d) return;
+  doAction("setDate", { id: reviewCtx.id, milestone: finalName, date: d });
+  closeModals();
+}
+function clearManualDate(){
+  if (!reviewCtx) return;
+  const name = MILESTONES[reviewCtx.mi];
+  const finalName = DRAFT_TO_FINAL[name] || name;
+  doAction("clearDate", { id: reviewCtx.id, milestone: finalName });
+  closeModals();
+}
+function deleteRound(id, mi, ri){
+  doAction("deleteRound", { id, milestone: MILESTONES[mi], round: ri });
   closeModals();
 }
 
@@ -405,8 +538,8 @@ function confirmDelete(){
 function setArchived(id, val){ doAction("setArchived", { id, archived: val }); }
 
 function closeModals(){
-  ["dateOverlay","infoOverlay","delOverlay"].forEach(x=>$(x).classList.remove("show"));
-  editingCell = null; editingInfoId = null; deletingId = null;
+  ["reviewOverlay","infoOverlay","delOverlay"].forEach(x=>$(x).classList.remove("show"));
+  reviewCtx = null; editingInfoId = null; deletingId = null; rvSelectedResult = "";
 }
 
 /* ── Excel 匯出 ── */
@@ -421,13 +554,43 @@ function exportExcel(){
       "完成度%": Math.round((maxIdx(s)+1)/N*100),
       "狀態": s.archived ? "已封存" : "追蹤中",
     };
-    MILESTONES.forEach((m,i)=>{ row[`${i+1}.${m}`] = (s.dates && s.dates[m]) || ""; });
+    MILESTONES.forEach((m,i)=>{
+      const d = (s.dates && s.dates[m]) || "";
+      const rs = roundsOf(s, m);
+      // 每站：定稿日 + (審閱輪數/最新狀態)
+      let cell = d;
+      if (rs.length){
+        const st = cellStatus(s, m);
+        const stTxt = st==="done"?"已通過":st==="review"?"待審閱":st==="revise"?"待修改":"";
+        cell = `${d}${d?" ":""}[${rs.length}輪·${stTxt}]`;
+      }
+      row[`${i+1}.${m}`] = cell;
+    });
     return row;
   });
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws["!cols"] = [{wch:10},{wch:8},{wch:8},{wch:8},{wch:14},{wch:12},{wch:18},{wch:8},{wch:8}].concat(MILESTONES.map(()=>({wch:12})));
+  ws["!cols"] = [{wch:10},{wch:8},{wch:8},{wch:8},{wch:14},{wch:12},{wch:18},{wch:8},{wch:8}].concat(MILESTONES.map(()=>({wch:16})));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "論文進度");
+
+  // 第二張表：審閱明細（每一輪一列）
+  const detail = [];
+  students.forEach(s => {
+    MILESTONES.forEach((m,i) => {
+      roundsOf(s, m).forEach((r, ri) => {
+        detail.push({
+          "姓名": s.name, "里程碑": `${i+1}.${m}`, "輪次": ri+1,
+          "繳交日": r.submit||"", "回覆日": r.reply||"", "結果": r.result||"（待回覆）", "意見": r.note||"",
+        });
+      });
+    });
+  });
+  if (detail.length){
+    const ws2 = XLSX.utils.json_to_sheet(detail);
+    ws2["!cols"] = [{wch:10},{wch:20},{wch:6},{wch:12},{wch:12},{wch:12},{wch:30}];
+    XLSX.utils.book_append_sheet(wb, ws2, "審閱明細");
+  }
+
   XLSX.writeFile(wb, `論文進度_${today()}.xlsx`);
 }
 
@@ -458,13 +621,39 @@ function rowHtml(s, isArch){
     const d = s.dates ? s.dates[name] : null;
     const inTrail = i <= mi;
     const oral = ORAL.has(name);
-    const bg = d ? cellColor(i) : inTrail ? dimColor(i) : "#EEF0F5";
-    const color = d ? "#000000" : "#AEB4C2";
-    const border = d ? "none" : oral ? "1px solid #9AA0C0" : "1px dashed #C9CFDC";
+    const st = cellStatus(s, name);
+    const rs = roundsOf(s, name);
+    const rn = rs.length;
+
+    let bg, color, border, content, extra = "";
     const shadow = (oral && d) ? "box-shadow:0 0 0 2px rgba(0,0,0,.35) inset;" : "";
-    cells += `<td><button class="cell" style="background:${bg};color:${color};border:${border};${shadow}"
-      onclick="openDateModal('${s.id}',${i})"
-      title="${esc(s.name)}｜${esc(name)}${d ? "｜"+d : "（未完成，點擊輸入日期）"}">${d ? fmtShort(d) : inTrail ? "—" : ""}</button></td>`;
+    if (st === "done"){
+      bg = cellColor(i); color = "#000000"; border = "none";
+      content = fmtShort(d);
+    } else if (st === "review"){
+      // 學生已交、待老師審 → 藍
+      bg = "#2B7DD9"; color = "#fff"; border = "none";
+      const last = rs[rs.length-1];
+      content = fmtShort(last.submit);
+      extra = `<span class="cell-flag" style="background:#0E4E92">待審</span>`;
+    } else if (st === "revise"){
+      // 老師已回、待學生改 → 橘
+      bg = "#E08A2B"; color = "#fff"; border = "none";
+      const last = rs[rs.length-1];
+      content = fmtShort(last.reply);
+      extra = `<span class="cell-flag" style="background:#A85E13">待改</span>`;
+    } else {
+      // 未開始
+      bg = inTrail ? dimColor(i) : "#EEF0F5";
+      color = "#AEB4C2";
+      border = oral ? "1px solid #9AA0C0" : "1px dashed #C9CFDC";
+      content = inTrail ? "—" : "";
+    }
+    const roundBadge = rn > 1 ? `<span class="cell-round">R${rn}</span>` : "";
+    cells += `<td><button class="cell" style="background:${bg};color:${color};border:${border};${shadow};position:relative"
+      onclick="openReviewModal('${s.id}',${i})"
+      title="${esc(s.name)}｜${esc(name)}｜${st==='done'?'已通過 '+d:st==='review'?'待審閱':st==='revise'?'待學生修改':'未開始'}">
+      ${content}${roundBadge}${extra}</button></td>`;
   }
   const archBtn = isArch
     ? `<button class="iconbtn" style="color:#9DB8FF" title="還原至追蹤列表" onclick="setArchived('${s.id}',false)">⤒</button>`
@@ -487,9 +676,40 @@ function rowHtml(s, isArch){
     </td>${cells}</tr>`;
 }
 
+function renderTodo(active){
+  // 收集所有「學生已交、待老師回覆」的項目
+  const items = [];
+  active.forEach(s => {
+    MILESTONES.forEach((name, i) => {
+      if (cellStatus(s, name) === "review"){
+        const rs = roundsOf(s, name);
+        const last = rs[rs.length-1];
+        items.push({ sid: s.id, sname: s.name, mi: i, name, wait: daysSince(last.submit) });
+      }
+    });
+  });
+  items.sort((a,b)=> b.wait - a.wait);
+  const el = $("todoBanner");
+  if (!items.length){
+    el.innerHTML = `<div class="todo-banner"><div class="todo-title">📥 待我審閱 <span class="todo-count">0</span></div><div class="todo-empty">目前沒有待審閱的繳交，都回覆完了 👍</div></div>`;
+    return;
+  }
+  const chips = items.map(it =>
+    `<div class="todo-chip" onclick="openReviewModal('${it.sid}',${it.mi})">
+      <b>${esc(it.sname)}</b>・${esc(it.name)}
+      <span class="wait">等 ${it.wait} 天</span>
+    </div>`
+  ).join("");
+  el.innerHTML = `<div class="todo-banner">
+    <div class="todo-title">📥 待我審閱 <span class="todo-count">${items.length}</span></div>
+    <div class="todo-list">${chips}</div>
+  </div>`;
+}
+
 function render(){
   const active = students.filter(s=>!s.archived);
   const archived = students.filter(s=>s.archived);
+  renderTodo(active);
   $("statActive").textContent = active.length;
   $("statAvg").textContent = (active.length ? Math.round(active.reduce((a,s)=>a+maxIdx(s)+1,0)/(active.length*N)*100) : 0) + "%";
 
