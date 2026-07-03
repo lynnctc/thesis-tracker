@@ -3,99 +3,111 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>碩士論文進度光譜</title>
+<title>Hsiu's Lab 碩士論文進度光譜</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: light; }
+  :root {
+    --ink: #2F3138;          /* 主要深色文字 */
+    --ink80: rgba(30,32,38,0.8);  /* 說明文字：黑色 80% */
+    --ink-soft: #6E7280;     /* 次要灰 */
+    --royal: #1F5FD8;        /* 寶藍色（進度百分比） */
+    --line: #E4E7F0;
+    --card: rgba(255,255,255,0.82);
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: #0F1219; color: #E8EAF0; min-height: 100vh;
+    background: linear-gradient(160deg, #FFEEF0 0%, #FFF6E8 22%, #EDFBEF 48%, #E8F6FF 72%, #F1EDFF 100%);
+    background-attachment: fixed;
+    color: var(--ink); min-height: 100vh;
     font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
   }
-  header { padding: 24px 24px 16px; border-bottom: 1px solid #232838; }
+  header { padding: 24px 24px 16px; border-bottom: 1px solid var(--line); }
   .rainbow-bar { height: 6px; width: 160px; border-radius: 99px; margin-bottom: 12px; }
-  h1 { font-size: 24px; letter-spacing: 1px; color: #fff; }
-  .sub { font-size: 14px; color: #8B93A5; margin-top: 4px; }
+  h1 { font-size: 24px; letter-spacing: 1px; color: #26282E; }
+  .sub { font-size: 14px; color: var(--ink-soft); margin-top: 4px; }
   .toprow { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
   .stats { display: flex; align-items: center; gap: 20px; font-size: 14px; }
-  .stat-label { font-size: 12px; color: #8B93A5; }
-  .stat-num { font-size: 20px; font-weight: 700; color: #fff; }
+  .stat-label { font-size: 12px; color: var(--ink-soft); }
+  .stat-num { font-size: 20px; font-weight: 700; color: #26282E; }
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
   input, select {
-    background: #171B25; border: 1px solid #2C3347; color: #E8EAF0;
+    background: #FFFFFF; border: 1px solid #D6DBE8; color: var(--ink);
     padding: 8px 12px; border-radius: 10px; font-size: 14px; outline: none; font-family: inherit;
   }
-  input:focus, select:focus { border-color: #5B87F5; }
+  input::placeholder { color: #9AA0AE; }
+  input:focus, select:focus { border-color: var(--royal); }
   button { cursor: pointer; border: none; border-radius: 10px; font-size: 14px; font-family: inherit; }
-  .btn-primary { background: hsl(160 80% 55%); color: #0a1512; padding: 8px 16px; font-weight: 600; }
-  .btn-excel { background: hsl(200 85% 60%); color: #0a1214; padding: 7px 12px; font-size: 12px; font-weight: 600; }
-  .btn-ghost { background: transparent; border: 1px solid #2C3347; color: #AEB6C8; padding: 7px 12px; font-size: 12px; }
-  .btn-ghost:hover { background: #171B25; }
-  .sortbtn { padding: 6px 12px; border-radius: 10px; border: 1px solid #2C3347; background: transparent; color: #8B93A5; font-size: 12px; }
-  .sortbtn.on { border-color: #5B87F5; color: #9DB8FF; background: #182036; }
+  .btn-primary { background: hsl(160 65% 45%); color: #fff; padding: 8px 16px; font-weight: 600; }
+  .btn-excel { background: hsl(210 80% 52%); color: #fff; padding: 7px 12px; font-size: 12px; font-weight: 600; }
+  .btn-ghost { background: #FFFFFFAA; border: 1px solid #D6DBE8; color: var(--ink-soft); padding: 7px 12px; font-size: 12px; }
+  .btn-ghost:hover { background: #fff; }
+  .sortbtn { padding: 6px 12px; border-radius: 10px; border: 1px solid #D6DBE8; background: #FFFFFFAA; color: var(--ink-soft); font-size: 12px; }
+  .sortbtn.on { border-color: var(--royal); color: var(--royal); background: #E8F0FF; font-weight: 600; }
   main { padding: 16px; }
-  .table-wrap { overflow-x: auto; border: 1px solid #232838; border-radius: 16px; background: #12151E; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: 0 4px 22px rgba(160,170,200,0.18); }
   table { border-collapse: separate; border-spacing: 0; }
-  th { font-weight: 400; padding: 4px 4px 8px; vertical-align: bottom; min-width: 58px; }
-  th.namecol { position: sticky; left: 0; z-index: 20; background: #12151E; min-width: 210px; text-align: left; padding: 8px 16px; }
+  th { font-weight: 400; padding: 4px 4px 8px; vertical-align: bottom; min-width: 60px; }
+  th.namecol { position: sticky; left: 0; z-index: 20; background: #FBFCFE; min-width: 210px; text-align: left; padding: 8px 16px; }
   .mhead { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .mname { writing-mode: vertical-rl; text-orientation: mixed; height: 130px; font-size: 12px; line-height: 1.2; color: #C6CCDA; }
-  .mname.oral { color: #fff; font-weight: 700; }
-  .mdot { width: 24px; height: 4px; border-radius: 99px; }
-  .mnum { font-size: 10px; color: #5C6478; }
-  td { border-top: 1px solid #232838; padding: 2px; }
-  td.namecell { position: sticky; left: 0; z-index: 10; background: #12151E; padding: 8px 12px; }
+  .mname { writing-mode: vertical-rl; text-orientation: mixed; height: 150px; font-size: 14px; line-height: 1.25; font-weight: 500; color: var(--ink); }
+  .mname.oral { color: #10141B; font-weight: 800; }
+  .mdot { width: 26px; height: 4px; border-radius: 99px; }
+  .mnum { font-size: 11px; color: #A6ABBC; }
+  td { border-top: 1px solid var(--line); padding: 2px; }
+  td.namecell { position: sticky; left: 0; z-index: 10; background: #FBFCFE; padding: 8px 12px; }
   .srow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .sname { font-weight: 500; color: #fff; font-size: 14px; }
-  .badge { font-size: 10px; padding: 2px 6px; border-radius: 6px; font-weight: 700; margin-left: 6px; white-space: nowrap; }
-  .b-over { background: #B84A4A; color: #fff; }
+  .sname { font-weight: 600; color: #26282E; font-size: 14px; }
+  .badge { font-size: 12px; padding: 2px 6px; border-radius: 6px; font-weight: 700; margin-left: 6px; white-space: nowrap; }
+  .b-over { background: #C0392B; color: #fff; }
   .b-last { background: #E5A83B; color: #1a1300; }
-  .b-done { background: hsl(160 80% 45%); color: #04150e; }
-  .sinfo { font-size: 11px; color: #8B93A5; margin-top: 2px; }
+  .b-done { background: hsl(150 60% 42%); color: #fff; }
+  .sinfo { font-size: 14px; color: var(--ink80); margin-top: 3px; }
+  .sinfo .pct { color: var(--royal); font-weight: 700; }
   .iconbtns { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
-  .iconbtn { background: transparent; color: #5C6478; font-size: 12px; padding: 2px 6px; border-radius: 6px; }
-  .iconbtn:hover { background: #1D2230; }
-  .minibar { margin-top: 6px; height: 6px; border-radius: 99px; background: #1D2230; overflow: hidden; }
+  .iconbtn { background: transparent; color: #9AA0AE; font-size: 13px; padding: 2px 6px; border-radius: 6px; }
+  .iconbtn:hover { background: #EEF0F5; color: var(--ink); }
+  .minibar { margin-top: 6px; height: 6px; border-radius: 99px; background: #E4E7F0; overflow: hidden; }
   .minibar > div { height: 100%; border-radius: 99px; transition: width .6s; }
   .cell {
-    width: 100%; height: 44px; border-radius: 8px; font-size: 11px; font-weight: 500;
-    line-height: 1.2; background: #171B25; color: #5C6478; border: 1px dashed #2C3347;
+    width: 100%; height: 46px; border-radius: 8px; font-size: 14px; font-weight: 700;
+    line-height: 1.2; background: #EEF0F5; color: #BFC5D2; border: 1px dashed #C9CFDC;
     transition: transform .1s;
   }
   .cell:hover { transform: scale(1.06); }
   .empty-box {
-    padding: 48px; text-align: center; border: 1px dashed #2C3347;
-    border-radius: 16px; color: #8B93A5;
+    padding: 48px; text-align: center; border: 1px dashed #C9CFDC;
+    border-radius: 16px; color: var(--ink-soft); background: var(--card);
   }
-  .legend { font-size: 12px; color: #5C6478; margin-top: 16px; line-height: 1.7; }
-  .banner { margin-top: 12px; font-size: 12px; padding: 8px 12px; border-radius: 10px; background: #3A1E22; color: #F5A0A0; display: none; }
+  .legend { font-size: 14px; color: var(--ink80); margin-top: 16px; line-height: 1.8; }
+  .banner { margin-top: 12px; font-size: 13px; padding: 8px 12px; border-radius: 10px; background: #FDECEC; color: #C0392B; display: none; }
   /* Modal */
   .overlay {
-    position: fixed; inset: 0; z-index: 50; background: rgba(5,8,14,.75);
+    position: fixed; inset: 0; z-index: 50; background: rgba(40,44,60,.45);
     display: none; align-items: center; justify-content: center; padding: 16px;
   }
   .overlay.show { display: flex; }
-  .modal { background: #171B25; border: 1px solid #2C3347; border-radius: 16px; padding: 20px; width: 100%; max-width: 380px; }
-  .modal h3 { color: #fff; font-size: 16px; }
-  .modal .msub { font-size: 14px; color: #AEB6C8; margin-top: 4px; }
-  .modal label { display: block; font-size: 12px; color: #8B93A5; margin: 14px 0 4px; }
+  .modal { background: #FFFFFF; border: 1px solid var(--line); border-radius: 16px; padding: 20px; width: 100%; max-width: 380px; box-shadow: 0 12px 40px rgba(60,70,100,0.25); }
+  .modal h3 { color: #26282E; font-size: 16px; }
+  .modal .msub { font-size: 14px; color: var(--ink80); margin-top: 4px; }
+  .modal label { display: block; font-size: 13px; color: var(--ink-soft); margin: 14px 0 4px; }
   .modal input, .modal select { width: 100%; }
   .modal .btnrow { display: flex; gap: 8px; margin-top: 20px; }
-  .btn-save { flex: 1; padding: 9px; font-weight: 600; color: #0a1512; }
-  .btn-danger-ghost { padding: 9px 14px; background: transparent; border: 1px solid #3A1E22; color: #F5A0A0; }
-  .btn-cancel { padding: 9px 14px; background: transparent; border: 1px solid #2C3347; color: #AEB6C8; }
-  .btn-danger { flex: 1; padding: 9px; background: #B84A4A; color: #fff; font-weight: 600; }
+  .btn-save { flex: 1; padding: 9px; font-weight: 600; color: #fff; }
+  .btn-danger-ghost { padding: 9px 14px; background: transparent; border: 1px solid #E0A9A2; color: #C0392B; }
+  .btn-cancel { padding: 9px 14px; background: transparent; border: 1px solid #D6DBE8; color: var(--ink-soft); }
+  .btn-danger { flex: 1; padding: 9px; background: #C0392B; color: #fff; font-weight: 600; }
   .colorbar { height: 4px; width: 64px; border-radius: 99px; margin-bottom: 14px; }
-  #loading { padding: 40px; text-align: center; color: #8B93A5; }
-  .saving-dot { position: fixed; top: 12px; right: 12px; z-index: 60; background: #182036; color: #9DB8FF;
-    font-size: 12px; padding: 6px 12px; border-radius: 99px; border: 1px solid #5B87F5; display: none; }
+  #loading { padding: 40px; text-align: center; color: var(--ink-soft); }
+  .saving-dot { position: fixed; top: 12px; right: 12px; z-index: 60; background: #E8F0FF; color: var(--royal);
+    font-size: 13px; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--royal); display: none; }
 </style>
 </head>
 <body>
 
 <!-- ═══ 設定：貼上你的 Apps Script 網頁應用程式網址（以 /exec 結尾）═══ -->
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbzvpOqr1qwzd3e95p259eDXyVxiYZK07luAZ57A9W87zdeme0517etdhnBo8HgdnXcInQ/exec";
+  const API_URL = "https://script.google.com/macros/s/AKfycbw3aUlcU29XydzwBPpuQ-fPCNtbijPTTR9RIi8NxvIExbC6uZXf91jJlttKe9fjEAE/exec";
 </script>
 
 <div class="saving-dot" id="savingDot">儲存中…</div>
@@ -104,7 +116,7 @@
   <div class="toprow">
     <div>
       <div class="rainbow-bar" id="rainbowBar"></div>
-      <h1>碩士論文進度光譜</h1>
+      <h1>Hsiu's Lab 碩士論文進度光譜</h1>
       <p class="sub" id="subtitle"></p>
     </div>
     <div class="stats">
@@ -217,7 +229,7 @@ const GROUPS = ["資管組","醫資組"];
 
 const hue = i => Math.round(i * 285 / (N - 1));
 const cellColor = i => `hsl(${hue(i)} 82% 58%)`;
-const dimColor  = i => `hsl(${hue(i)} 45% 26%)`;
+const dimColor  = i => `hsl(${hue(i)} 55% 86%)`;
 const trackGradient = `linear-gradient(90deg, ${[0,7,14,21,28,34].map(i=>`hsl(${hue(i)} 82% 58%)`).join(",")})`;
 document.getElementById("rainbowBar").style.background = trackGradient;
 
@@ -446,10 +458,10 @@ function rowHtml(s, isArch){
     const d = s.dates ? s.dates[name] : null;
     const inTrail = i <= mi;
     const oral = ORAL.has(name);
-    const bg = d ? cellColor(i) : inTrail ? dimColor(i) : "#171B25";
-    const color = d ? "#101319" : "#5C6478";
-    const border = d ? "none" : oral ? "1px solid #4A5470" : "1px dashed #2C3347";
-    const shadow = (oral && d) ? "box-shadow:0 0 0 2px rgba(255,255,255,.55) inset;" : "";
+    const bg = d ? cellColor(i) : inTrail ? dimColor(i) : "#EEF0F5";
+    const color = d ? "#000000" : "#AEB4C2";
+    const border = d ? "none" : oral ? "1px solid #9AA0C0" : "1px dashed #C9CFDC";
+    const shadow = (oral && d) ? "box-shadow:0 0 0 2px rgba(0,0,0,.35) inset;" : "";
     cells += `<td><button class="cell" style="background:${bg};color:${color};border:${border};${shadow}"
       onclick="openDateModal('${s.id}',${i})"
       title="${esc(s.name)}｜${esc(name)}${d ? "｜"+d : "（未完成，點擊輸入日期）"}">${d ? fmtShort(d) : inTrail ? "—" : ""}</button></td>`;
@@ -463,7 +475,7 @@ function rowHtml(s, isArch){
         <div style="min-width:0">
           <div><span class="sname">${esc(s.name)}</span>${badgeHtml(s)}</div>
           <div class="sinfo">${esc(infoLine)}</div>
-          <div class="sinfo">${mi>=0 ? `${esc(MILESTONES[mi])}・${pct}%` : "尚未開始"}</div>
+          <div class="sinfo">${mi>=0 ? `${esc(MILESTONES[mi])}・<span class="pct">${pct}%</span>` : "尚未開始"}</div>
         </div>
         <div class="iconbtns">
           <button class="iconbtn" title="編輯基本資料" onclick="openInfoModal('${s.id}')">✎</button>
