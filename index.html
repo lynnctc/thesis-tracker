@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>碩士論文進度光譜</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0F1219; color: #E8EAF0; min-height: 100vh;
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  }
+  header { padding: 24px 24px 16px; border-bottom: 1px solid #232838; }
+  .rainbow-bar { height: 6px; width: 160px; border-radius: 99px; margin-bottom: 12px; }
+  h1 { font-size: 24px; letter-spacing: 1px; color: #fff; }
+  .sub { font-size: 14px; color: #8B93A5; margin-top: 4px; }
+  .toprow { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+  .stats { display: flex; align-items: center; gap: 20px; font-size: 14px; }
+  .stat-label { font-size: 12px; color: #8B93A5; }
+  .stat-num { font-size: 20px; font-weight: 700; color: #fff; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+  input, select {
+    background: #171B25; border: 1px solid #2C3347; color: #E8EAF0;
+    padding: 8px 12px; border-radius: 10px; font-size: 14px; outline: none; font-family: inherit;
+  }
+  input:focus, select:focus { border-color: #5B87F5; }
+  button { cursor: pointer; border: none; border-radius: 10px; font-size: 14px; font-family: inherit; }
+  .btn-primary { background: hsl(160 80% 55%); color: #0a1512; padding: 8px 16px; font-weight: 600; }
+  .btn-excel { background: hsl(200 85% 60%); color: #0a1214; padding: 7px 12px; font-size: 12px; font-weight: 600; }
+  .btn-ghost { background: transparent; border: 1px solid #2C3347; color: #AEB6C8; padding: 7px 12px; font-size: 12px; }
+  .btn-ghost:hover { background: #171B25; }
+  .sortbtn { padding: 6px 12px; border-radius: 10px; border: 1px solid #2C3347; background: transparent; color: #8B93A5; font-size: 12px; }
+  .sortbtn.on { border-color: #5B87F5; color: #9DB8FF; background: #182036; }
+  main { padding: 16px; }
+  .table-wrap { overflow-x: auto; border: 1px solid #232838; border-radius: 16px; background: #12151E; }
+  table { border-collapse: separate; border-spacing: 0; }
+  th { font-weight: 400; padding: 4px 4px 8px; vertical-align: bottom; min-width: 58px; }
+  th.namecol { position: sticky; left: 0; z-index: 20; background: #12151E; min-width: 210px; text-align: left; padding: 8px 16px; }
+  .mhead { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .mname { writing-mode: vertical-rl; text-orientation: mixed; height: 130px; font-size: 12px; line-height: 1.2; color: #C6CCDA; }
+  .mname.oral { color: #fff; font-weight: 700; }
+  .mdot { width: 24px; height: 4px; border-radius: 99px; }
+  .mnum { font-size: 10px; color: #5C6478; }
+  td { border-top: 1px solid #232838; padding: 2px; }
+  td.namecell { position: sticky; left: 0; z-index: 10; background: #12151E; padding: 8px 12px; }
+  .srow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .sname { font-weight: 500; color: #fff; font-size: 14px; }
+  .badge { font-size: 10px; padding: 2px 6px; border-radius: 6px; font-weight: 700; margin-left: 6px; white-space: nowrap; }
+  .b-over { background: #B84A4A; color: #fff; }
+  .b-last { background: #E5A83B; color: #1a1300; }
+  .b-done { background: hsl(160 80% 45%); color: #04150e; }
+  .sinfo { font-size: 11px; color: #8B93A5; margin-top: 2px; }
+  .iconbtns { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .iconbtn { background: transparent; color: #5C6478; font-size: 12px; padding: 2px 6px; border-radius: 6px; }
+  .iconbtn:hover { background: #1D2230; }
+  .minibar { margin-top: 6px; height: 6px; border-radius: 99px; background: #1D2230; overflow: hidden; }
+  .minibar > div { height: 100%; border-radius: 99px; transition: width .6s; }
+  .cell {
+    width: 100%; height: 44px; border-radius: 8px; font-size: 11px; font-weight: 500;
+    line-height: 1.2; background: #171B25; color: #5C6478; border: 1px dashed #2C3347;
+    transition: transform .1s;
+  }
+  .cell:hover { transform: scale(1.06); }
+  .empty-box {
+    padding: 48px; text-align: center; border: 1px dashed #2C3347;
+    border-radius: 16px; color: #8B93A5;
+  }
+  .legend { font-size: 12px; color: #5C6478; margin-top: 16px; line-height: 1.7; }
+  .banner { margin-top: 12px; font-size: 12px; padding: 8px 12px; border-radius: 10px; background: #3A1E22; color: #F5A0A0; display: none; }
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50; background: rgba(5,8,14,.75);
+    display: none; align-items: center; justify-content: center; padding: 16px;
+  }
+  .overlay.show { display: flex; }
+  .modal { background: #171B25; border: 1px solid #2C3347; border-radius: 16px; padding: 20px; width: 100%; max-width: 380px; }
+  .modal h3 { color: #fff; font-size: 16px; }
+  .modal .msub { font-size: 14px; color: #AEB6C8; margin-top: 4px; }
+  .modal label { display: block; font-size: 12px; color: #8B93A5; margin: 14px 0 4px; }
+  .modal input, .modal select { width: 100%; }
+  .modal .btnrow { display: flex; gap: 8px; margin-top: 20px; }
+  .btn-save { flex: 1; padding: 9px; font-weight: 600; color: #0a1512; }
+  .btn-danger-ghost { padding: 9px 14px; background: transparent; border: 1px solid #3A1E22; color: #F5A0A0; }
+  .btn-cancel { padding: 9px 14px; background: transparent; border: 1px solid #2C3347; color: #AEB6C8; }
+  .btn-danger { flex: 1; padding: 9px; background: #B84A4A; color: #fff; font-weight: 600; }
+  .colorbar { height: 4px; width: 64px; border-radius: 99px; margin-bottom: 14px; }
+  #loading { padding: 40px; text-align: center; color: #8B93A5; }
+  .saving-dot { position: fixed; top: 12px; right: 12px; z-index: 60; background: #182036; color: #9DB8FF;
+    font-size: 12px; padding: 6px 12px; border-radius: 99px; border: 1px solid #5B87F5; display: none; }
+</style>
+</head>
+<body>
+
+<!-- ═══ 設定：貼上你的 Apps Script 網頁應用程式網址（以 /exec 結尾）═══ -->
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbzvpOqr1qwzd3e95p259eDXyVxiYZK07luAZ57A9W87zdeme0517etdhnBo8HgdnXcInQ/exec";
+</script>
+
+<div class="saving-dot" id="savingDot">儲存中…</div>
+
+<header>
+  <div class="toprow">
+    <div>
+      <div class="rainbow-bar" id="rainbowBar"></div>
+      <h1>碩士論文進度光譜</h1>
+      <p class="sub" id="subtitle"></p>
+    </div>
+    <div class="stats">
+      <div><div class="stat-label">追蹤中</div><div class="stat-num" id="statActive">0</div></div>
+      <div><div class="stat-label">平均進度</div><div class="stat-num" id="statAvg">0%</div></div>
+      <button class="btn-excel" onclick="exportExcel()">⬇ 匯出 Excel</button>
+      <button class="btn-ghost" onclick="loadData()">↻ 重新整理</button>
+    </div>
+  </div>
+  <div class="controls">
+    <input id="fName" placeholder="學生姓名" style="width:140px">
+    <input id="fYear" placeholder="入學年(如114)" inputmode="numeric" style="width:120px">
+    <select id="fGroup"><option>資管組</option><option>醫資組</option></select>
+    <select id="fStatus"><option>一般生</option><option>在職生</option></select>
+    <button class="btn-primary" onclick="addStudent()">＋ 新增學生</button>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px">
+      <span style="color:#8B93A5">排序：</span>
+      <button class="sortbtn on" id="sortNewest" onclick="setSort('newest')">新加入在前</button>
+      <button class="sortbtn" id="sortProgress" onclick="setSort('progress')">進度</button>
+    </div>
+  </div>
+  <div class="banner" id="errBanner"></div>
+</header>
+
+<main>
+  <div id="loading">載入中…</div>
+  <div id="content" style="display:none"></div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+    <button class="btn-ghost" id="archToggle" style="display:none;margin-top:16px" onclick="toggleArchived()"></button>
+  </div>
+  <p class="legend">
+    彩色格＝已完成・暗色格＝已越過但未填日期・虛線格＝尚未到達・🎤＝口試（白框強調）。<br>
+    左側色條：🟡 修業最後一年、🔴 已逾修業年限、🟢 論文完成。所有人看到的是同一份共享資料。
+  </p>
+</main>
+
+<!-- 日期輸入 -->
+<div class="overlay" id="dateOverlay" onclick="if(event.target===this)closeModals()">
+  <div class="modal">
+    <div class="colorbar" id="dateColorbar"></div>
+    <h3 id="dateStudent"></h3>
+    <p class="msub" id="dateMilestone"></p>
+    <label>完成日期</label>
+    <input type="date" id="dateInput">
+    <div class="btnrow">
+      <button class="btn-save" id="dateSaveBtn" onclick="saveDate()">儲存日期</button>
+      <button class="btn-danger-ghost" id="dateClearBtn" onclick="clearDate()" style="display:none">清除</button>
+      <button class="btn-cancel" onclick="closeModals()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 編輯基本資料 -->
+<div class="overlay" id="infoOverlay" onclick="if(event.target===this)closeModals()">
+  <div class="modal">
+    <h3>編輯基本資料</h3>
+    <label>姓名</label><input id="eName">
+    <label>入學年（民國，如 114；也可填西元）</label><input id="eYear" inputmode="numeric">
+    <div style="display:flex;gap:8px">
+      <div style="flex:1"><label>組別</label><select id="eGroup"><option>資管組</option><option>醫資組</option></select></div>
+      <div style="flex:1"><label>身分別</label><select id="eStatus"><option>一般生</option><option>在職生</option></select></div>
+    </div>
+    <div class="btnrow">
+      <button class="btn-save" style="background:hsl(160 80% 55%)" onclick="saveInfo()">儲存</button>
+      <button class="btn-cancel" onclick="closeModals()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 刪除確認 -->
+<div class="overlay" id="delOverlay" onclick="if(event.target===this)closeModals()">
+  <div class="modal">
+    <h3 id="delTitle"></h3>
+    <p class="msub">該學生的所有進度日期將一併刪除，且無法復原。若是已畢業學生，建議改用「⤓ 封存」保留紀錄。</p>
+    <div class="btnrow">
+      <button class="btn-danger" onclick="confirmDelete()">確認刪除</button>
+      <button class="btn-cancel" style="flex:1" onclick="closeModals()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 通行碼 -->
+<div class="overlay" id="codeOverlay">
+  <div class="modal">
+    <h3>輸入通行碼</h3>
+    <p class="msub">請輸入老師提供的通行碼以存取進度資料。</p>
+    <label>通行碼</label>
+    <input type="password" id="codeInput" onkeydown="if(event.key==='Enter')submitCode()">
+    <div class="btnrow">
+      <button class="btn-save" style="background:hsl(160 80% 55%)" onclick="submitCode()">進入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── 35 個關鍵里程碑 ── */
+const MILESTONES = [
+  "論文構想書","論文題目訂定","第一章草稿","第一章定稿","第二章大綱",
+  "2.1草稿","2.1定稿","2.2草稿","2.2定稿","2.3草稿","2.3定稿","2.4草稿","2.4定稿",
+  "Proposal第三章草稿","Proposal第三章定稿",
+  "Proposal第四章草稿","Proposal第四章定稿","Proposal第五章草稿","Proposal第五章定稿",
+  "Proposal合併","Proposal定稿","Proposal簡報練習","提案口試",
+  "Proposal後轉1-3草稿","Proposal後轉1-3定稿",
+  "第四章草稿","第四章定稿","第五章草稿","第五章定稿",
+  "Final合併","Final定稿","Final簡報練習","Final口試","Final後修改","完稿",
+];
+const N = MILESTONES.length;
+const ORAL = new Set(["提案口試","Final口試"]);
+const GROUPS = ["資管組","醫資組"];
+
+const hue = i => Math.round(i * 285 / (N - 1));
+const cellColor = i => `hsl(${hue(i)} 82% 58%)`;
+const dimColor  = i => `hsl(${hue(i)} 45% 26%)`;
+const trackGradient = `linear-gradient(90deg, ${[0,7,14,21,28,34].map(i=>`hsl(${hue(i)} 82% 58%)`).join(",")})`;
+document.getElementById("rainbowBar").style.background = trackGradient;
+
+const fmtShort = d => { if(!d) return ""; const p = d.split("-"); return `${+p[1]}/${+p[2]}`; };
+const today = () => new Date().toISOString().slice(0,10);
+const curAcadYear = () => { const d = new Date(); const y = d.getFullYear()-1911; return d.getMonth()+1>=8 ? y : y-1; };
+const normYear = v => { const n = parseInt(v); if(!n) return null; return n>1911 ? n-1911 : n; };
+document.getElementById("subtitle").textContent = `${N} 個里程碑・目前為 ${curAcadYear()} 學年度・點擊格子輸入完成日期`;
+
+const limitInfo = s => {
+  const ey = normYear(s.enrollYear);
+  if (!ey) return { state:"unknown", finalYear:null };
+  const limit = s.status === "在職生" ? 6 : 4;
+  const finalYear = ey + limit - 1;
+  const cur = curAcadYear();
+  if (cur > finalYear) return { state:"over", finalYear };
+  if (cur === finalYear) return { state:"last", finalYear };
+  return { state:"ok", finalYear };
+};
+
+/* ── 狀態 ── */
+let students = [];
+let sortMode = "newest";
+let showArchived = false;
+let editingCell = null;   // {id, mi}
+let editingInfoId = null;
+let deletingId = null;
+let accessCode = localStorage.getItem("thesis-code") || "";
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ── API ── */
+function showSaving(v){ $("savingDot").style.display = v ? "block" : "none"; }
+function showError(msg){ const b = $("errBanner"); b.textContent = msg; b.style.display = msg ? "block" : "none"; }
+
+async function apiGet(){
+  const res = await fetch(`${API_URL}?code=${encodeURIComponent(accessCode)}`);
+  return res.json();
+}
+async function apiPost(action, payload){
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ code: accessCode, action, payload }),
+  });
+  return res.json();
+}
+
+function requireCode(){
+  $("codeOverlay").classList.add("show");
+  setTimeout(()=>$("codeInput").focus(), 100);
+}
+async function submitCode(){
+  accessCode = $("codeInput").value.trim();
+  if (!accessCode) return;
+  localStorage.setItem("thesis-code", accessCode);
+  $("codeOverlay").classList.remove("show");
+  loadData();
+}
+
+async function loadData(){
+  if (API_URL.indexOf("http") !== 0){
+    $("loading").textContent = "尚未設定 API_URL：請先在 index.html 中貼上 Apps Script 網址。";
+    return;
+  }
+  if (!accessCode){ requireCode(); return; }
+  $("loading").style.display = "block";
+  showError("");
+  try {
+    const data = await apiGet();
+    if (data.error === "unauthorized"){
+      localStorage.removeItem("thesis-code"); accessCode = "";
+      $("loading").style.display = "none";
+      requireCode();
+      return;
+    }
+    students = data.students || [];
+    render();
+  } catch (e) {
+    showError("⚠ 無法連線到後端，請確認網路或 Apps Script 部署狀態，再按「重新整理」。");
+  } finally {
+    $("loading").style.display = "none";
+  }
+}
+
+async function doAction(action, payload){
+  showSaving(true);
+  try {
+    const data = await apiPost(action, payload);
+    if (data.error === "unauthorized"){
+      localStorage.removeItem("thesis-code"); accessCode = "";
+      requireCode(); return;
+    }
+    if (data.students){ students = data.students; render(); }
+    showError("");
+  } catch (e) {
+    showError("⚠ 儲存失敗，資料可能未同步，請按「重新整理」確認後再試一次。");
+  } finally {
+    showSaving(false);
+  }
+}
+
+/* ── 進度計算 ── */
+const maxIdx = s => { let m = -1; MILESTONES.forEach((name,i)=>{ if(s.dates && s.dates[name]) m = i; }); return m; };
+const isDone = s => !!(s.dates && s.dates["完稿"]);
+
+/* ── 操作 ── */
+function addStudent(){
+  const name = $("fName").value.trim();
+  if (!name) return;
+  doAction("add", { name, enrollYear: $("fYear").value.trim(), group: $("fGroup").value, status: $("fStatus").value });
+  $("fName").value = ""; $("fYear").value = "";
+}
+function setSort(m){
+  sortMode = m;
+  $("sortNewest").classList.toggle("on", m==="newest");
+  $("sortProgress").classList.toggle("on", m==="progress");
+  render();
+}
+function toggleArchived(){ showArchived = !showArchived; render(); }
+
+function openDateModal(id, mi){
+  editingCell = { id, mi };
+  const s = students.find(x=>x.id===id);
+  const existing = s && s.dates ? s.dates[MILESTONES[mi]] : null;
+  $("dateColorbar").style.background = cellColor(mi);
+  $("dateStudent").textContent = s ? s.name : "";
+  $("dateMilestone").textContent = `第 ${mi+1} 站・${MILESTONES[mi]}${ORAL.has(MILESTONES[mi]) ? " 🎤" : ""}`;
+  $("dateInput").value = existing || today();
+  $("dateSaveBtn").style.background = cellColor(mi);
+  $("dateClearBtn").style.display = existing ? "block" : "none";
+  $("dateOverlay").classList.add("show");
+}
+function saveDate(){
+  if (!editingCell) return;
+  const v = $("dateInput").value;
+  if (!v) return;
+  doAction("setDate", { id: editingCell.id, milestone: MILESTONES[editingCell.mi], date: v });
+  closeModals();
+}
+function clearDate(){
+  if (!editingCell) return;
+  doAction("clearDate", { id: editingCell.id, milestone: MILESTONES[editingCell.mi] });
+  closeModals();
+}
+
+function openInfoModal(id){
+  const s = students.find(x=>x.id===id);
+  if (!s) return;
+  editingInfoId = id;
+  $("eName").value = s.name; $("eYear").value = s.enrollYear || "";
+  $("eGroup").value = GROUPS.includes(s.group) ? s.group : GROUPS[0];
+  $("eStatus").value = s.status === "在職生" ? "在職生" : "一般生";
+  $("infoOverlay").classList.add("show");
+}
+function saveInfo(){
+  if (!editingInfoId) return;
+  doAction("updateInfo", { id: editingInfoId, name: $("eName").value, enrollYear: $("eYear").value.trim(), group: $("eGroup").value, status: $("eStatus").value });
+  closeModals();
+}
+
+function openDeleteModal(id){
+  const s = students.find(x=>x.id===id);
+  if (!s) return;
+  deletingId = id;
+  $("delTitle").textContent = `刪除「${s.name}」？`;
+  $("delOverlay").classList.add("show");
+}
+function confirmDelete(){
+  if (deletingId) doAction("remove", { id: deletingId });
+  closeModals();
+}
+function setArchived(id, val){ doAction("setArchived", { id, archived: val }); }
+
+function closeModals(){
+  ["dateOverlay","infoOverlay","delOverlay"].forEach(x=>$(x).classList.remove("show"));
+  editingCell = null; editingInfoId = null; deletingId = null;
+}
+
+/* ── Excel 匯出 ── */
+function exportExcel(){
+  const rows = students.map(s => {
+    const li = limitInfo(s);
+    const row = {
+      "姓名": s.name, "入學年": s.enrollYear || "", "組別": s.group || "", "身分別": s.status || "",
+      "修業年限至(學年)": li.finalYear || "",
+      "修業狀態": li.state==="over" ? "已超過年限" : li.state==="last" ? "最後一年" : li.state==="ok" ? "正常" : "未填入學年",
+      "目前進度": maxIdx(s) >= 0 ? MILESTONES[maxIdx(s)] : "尚未開始",
+      "完成度%": Math.round((maxIdx(s)+1)/N*100),
+      "狀態": s.archived ? "已封存" : "追蹤中",
+    };
+    MILESTONES.forEach((m,i)=>{ row[`${i+1}.${m}`] = (s.dates && s.dates[m]) || ""; });
+    return row;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws["!cols"] = [{wch:10},{wch:8},{wch:8},{wch:8},{wch:14},{wch:12},{wch:18},{wch:8},{wch:8}].concat(MILESTONES.map(()=>({wch:12})));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "論文進度");
+  XLSX.writeFile(wb, `論文進度_${today()}.xlsx`);
+}
+
+/* ── 畫面 ── */
+function badgeHtml(s){
+  const li = limitInfo(s);
+  let h = "";
+  if (li.state==="over") h += `<span class="badge b-over" title="修業年限至 ${li.finalYear} 學年，已超過">⚠ 逾限</span>`;
+  else if (li.state==="last") h += `<span class="badge b-last" title="本學年（${li.finalYear}）為修業最後一年">⏰ 末年</span>`;
+  if (isDone(s)) h += `<span class="badge b-done">✓ 完成</span>`;
+  return h;
+}
+function rowStripe(s){
+  const li = limitInfo(s);
+  if (li.state==="over") return "#B84A4A";
+  if (li.state==="last") return "#E5A83B";
+  if (isDone(s)) return "hsl(160 80% 45%)";
+  return "transparent";
+}
+
+function rowHtml(s, isArch){
+  const mi = maxIdx(s);
+  const pct = Math.round((mi+1)/N*100);
+  const infoLine = [s.enrollYear && `${normYear(s.enrollYear)}入學`, s.group, s.status].filter(Boolean).join("・") || "資料未填";
+  let cells = "";
+  for (let i=0;i<N;i++){
+    const name = MILESTONES[i];
+    const d = s.dates ? s.dates[name] : null;
+    const inTrail = i <= mi;
+    const oral = ORAL.has(name);
+    const bg = d ? cellColor(i) : inTrail ? dimColor(i) : "#171B25";
+    const color = d ? "#101319" : "#5C6478";
+    const border = d ? "none" : oral ? "1px solid #4A5470" : "1px dashed #2C3347";
+    const shadow = (oral && d) ? "box-shadow:0 0 0 2px rgba(255,255,255,.55) inset;" : "";
+    cells += `<td><button class="cell" style="background:${bg};color:${color};border:${border};${shadow}"
+      onclick="openDateModal('${s.id}',${i})"
+      title="${esc(s.name)}｜${esc(name)}${d ? "｜"+d : "（未完成，點擊輸入日期）"}">${d ? fmtShort(d) : inTrail ? "—" : ""}</button></td>`;
+  }
+  const archBtn = isArch
+    ? `<button class="iconbtn" style="color:#9DB8FF" title="還原至追蹤列表" onclick="setArchived('${s.id}',false)">⤒</button>`
+    : (isDone(s) ? `<button class="iconbtn" style="color:hsl(160 60% 55%)" title="封存（自列表隱藏）" onclick="setArchived('${s.id}',true)">⤓</button>` : "");
+  return `<tr style="opacity:${isArch ? .55 : 1}">
+    <td class="namecell" style="border-left:3px solid ${rowStripe(s)}">
+      <div class="srow">
+        <div style="min-width:0">
+          <div><span class="sname">${esc(s.name)}</span>${badgeHtml(s)}</div>
+          <div class="sinfo">${esc(infoLine)}</div>
+          <div class="sinfo">${mi>=0 ? `${esc(MILESTONES[mi])}・${pct}%` : "尚未開始"}</div>
+        </div>
+        <div class="iconbtns">
+          <button class="iconbtn" title="編輯基本資料" onclick="openInfoModal('${s.id}')">✎</button>
+          ${archBtn}
+          <button class="iconbtn" title="刪除學生" onclick="openDeleteModal('${s.id}')">✕</button>
+        </div>
+      </div>
+      <div class="minibar"><div style="width:${pct}%;background:${trackGradient};background-size:${pct>0 ? (100/pct)*100 : 100}% 100%"></div></div>
+    </td>${cells}</tr>`;
+}
+
+function render(){
+  const active = students.filter(s=>!s.archived);
+  const archived = students.filter(s=>s.archived);
+  $("statActive").textContent = active.length;
+  $("statAvg").textContent = (active.length ? Math.round(active.reduce((a,s)=>a+maxIdx(s)+1,0)/(active.length*N)*100) : 0) + "%";
+
+  const sorted = active.slice().sort((a,b) =>
+    sortMode==="progress"
+      ? (maxIdx(b)-maxIdx(a)) || ((b.createdAt||0)-(a.createdAt||0))
+      : (b.createdAt||0)-(a.createdAt||0)
+  );
+
+  const c = $("content");
+  c.style.display = "block";
+  if (!students.length){
+    c.innerHTML = `<div class="empty-box">尚未有學生資料。填寫上方欄位並按「＋ 新增學生」開始追蹤。</div>`;
+  } else {
+    let head = `<th class="namecol"><span style="font-size:12px;color:#8B93A5">學生 / 里程碑</span></th>`;
+    MILESTONES.forEach((m,i)=>{
+      head += `<th><div class="mhead">
+        <span class="mname${ORAL.has(m) ? " oral" : ""}">${esc(m)}</span>
+        <span class="mdot" style="background:${cellColor(i)}"></span>
+        <span class="mnum">${ORAL.has(m) ? "🎤" : i+1}</span></div></th>`;
+    });
+    let body = sorted.map(s=>rowHtml(s,false)).join("");
+    if (showArchived) body += archived.map(s=>rowHtml(s,true)).join("");
+    c.innerHTML = `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+
+  const t = $("archToggle");
+  if (archived.length){
+    t.style.display = "inline-block";
+    t.textContent = `${showArchived ? "隱藏" : "顯示"}已封存學生（${archived.length}）`;
+  } else t.style.display = "none";
+}
+
+loadData();
+</script>
+</body>
+</html>
