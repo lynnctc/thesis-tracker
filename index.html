@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hsiu's Lab 碩士論文進度光譜</title>
+<title>碩士論文進度光譜</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root { color-scheme: light; }
@@ -118,7 +118,7 @@
 
 <!-- ═══ 設定：貼上你的 Apps Script 網頁應用程式網址（以 /exec 結尾）═══ -->
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbz8gMS41CnQjy4-x98a6Dp56e89ARVRFG2txW8N9OQW-9lAylsaljpIUVDvfxK2WtlD/exec";
+  const API_URL = "https://script.google.com/macros/s/AKfycbwpwICwpWaGwfKIkbVL9gwsupvfwYtY7tQ7CyVAprDmF3wPVh5_bR7fbiWXZ5omLXA/exec";
 </script>
 
 <div class="saving-dot" id="savingDot">儲存中…</div>
@@ -127,13 +127,14 @@
   <div class="toprow">
     <div>
       <div class="rainbow-bar" id="rainbowBar"></div>
-      <h1>Hsiu's Lab 碩士論文進度光譜</h1>
+      <h1>碩士論文進度光譜</h1>
       <p class="sub" id="subtitle"></p>
     </div>
     <div class="stats">
       <div><div class="stat-label">追蹤中</div><div class="stat-num" id="statActive">0</div></div>
       <div><div class="stat-label">平均進度</div><div class="stat-num" id="statAvg">0%</div></div>
       <button class="btn-excel" onclick="exportExcel()">⬇ 匯出 Excel</button>
+      <button class="btn-ghost" onclick="openMilestoneSettings()">⚙ 里程碑設定</button>
       <button class="btn-ghost" onclick="loadData()">↻ 重新整理</button>
     </div>
   </div>
@@ -163,6 +164,7 @@
     點格子可看該站的繳交/回覆來回、新增繳交或回覆。格子顏色：<b style="color:#2B7DD9">藍＝待我審閱</b>、<b style="color:#E08A2B">橘＝待學生修改</b>、彩色＝已通過（顯示定稿日）、灰＝未開始；右上小標「待審/待改」、左下 R2＝第二輪。<br>
     左側色條：🟡 修業最後一年、🔴 已逾修業年限、🟢 論文完成。所有人看到的是同一份共享資料，僅將連結給你的學生。
   </p>
+  <p style="font-size:12px; color:#9AA0AE; margin-top:20px; text-align:center;">Creators: Yu-Hsiu Lin × Claude</p>
 </main>
 
 <!-- 審閱來回視窗 -->
@@ -244,9 +246,44 @@
 
 <!-- 通行碼已移除 -->
 
+<!-- 里程碑設定視窗 -->
+<div class="overlay" id="msOverlay" onclick="if(event.target===this)closeModals()">
+  <div class="modal" style="max-width:520px">
+    <h3>⚙ 里程碑設定</h3>
+
+    <!-- 需先驗證老師設定碼 -->
+    <div id="msCodeBox">
+      <p class="msub">修改里程碑結構需要老師設定碼。學生填寫日期不受影響。</p>
+      <label>老師設定碼</label>
+      <input type="password" id="msCode" onkeydown="if(event.key==='Enter')verifyTeacherCode()">
+      <div class="btnrow">
+        <button class="btn-save" style="background:var(--royal)" onclick="verifyTeacherCode()">驗證</button>
+        <button class="btn-cancel" onclick="closeModals()">取消</button>
+      </div>
+      <p id="msCodeErr" style="display:none;color:#C0392B;font-size:13px;margin-top:8px">設定碼錯誤，請再試一次。</p>
+    </div>
+
+    <!-- 驗證後的編輯區 -->
+    <div id="msEditBox" style="display:none">
+      <p class="msub" style="color:#C0392B">⚠ 建議修改前先「⬇ 匯出 Excel」備份。刪除某站會一併移除所有學生在該站的日期與審閱紀錄。</p>
+      <div id="msList" style="max-height:340px;overflow-y:auto;margin-top:12px"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input id="msNewName" placeholder="新里程碑名稱" style="flex:1">
+        <button class="btn-primary" onclick="msAdd()">＋ 新增到最後</button>
+      </div>
+      <div class="btnrow" style="margin-top:16px">
+        <button class="btn-save" style="flex:1;background:hsl(150 60% 42%)" onclick="msSave()">儲存里程碑</button>
+        <button class="btn-ghost" onclick="msRestoreDefault()">還原預設 35 站</button>
+        <button class="btn-cancel" onclick="closeModals()">取消</button>
+      </div>
+      <p class="msub" style="font-size:12px;margin-top:10px">命名小訣竅：若某站叫「◯◯草稿」、且清單中有「◯◯定稿」，回覆「通過」時會自動標記該定稿站。</p>
+    </div>
+  </div>
+</div>
+
 <script>
-/* ── 35 個關鍵里程碑 ── */
-const MILESTONES = [
+/* ── 里程碑清單（預設 35 站；實際以後端載入為準，老師可自訂）── */
+const DEFAULT_MILESTONES = [
   "論文構想書","論文題目訂定","第一章草稿","第一章定稿","第二章大綱",
   "2.1草稿","2.1定稿","2.2草稿","2.2定稿","2.3草稿","2.3定稿","2.4草稿","2.4定稿",
   "Proposal第三章草稿","Proposal第三章定稿",
@@ -256,20 +293,23 @@ const MILESTONES = [
   "第四章草稿","第四章定稿","第五章草稿","第五章定稿",
   "Final合併","Final定稿","Final簡報練習","Final口試","Final後修改","完稿",
 ];
-const N = MILESTONES.length;
-const ORAL = new Set(["提案口試","Final口試"]);
+let MILESTONES = DEFAULT_MILESTONES.slice();
+let N = MILESTONES.length;
 const GROUPS = ["資管組","醫資組"];
 
-/* 草稿 → 通過後自動標定稿 的對應表 */
-const DRAFT_TO_FINAL = {
-  "第一章草稿":"第一章定稿",
-  "2.1草稿":"2.1定稿","2.2草稿":"2.2定稿","2.3草稿":"2.3定稿","2.4草稿":"2.4定稿",
-  "Proposal第三章草稿":"Proposal第三章定稿",
-  "Proposal第四章草稿":"Proposal第四章定稿",
-  "Proposal第五章草稿":"Proposal第五章定稿",
-  "Proposal後轉1-3草稿":"Proposal後轉1-3定稿",
-  "第四章草稿":"第四章定稿","第五章草稿":"第五章定稿",
-};
+/* 口試站：自動辨識名稱含「口試」者 */
+const isOral = name => /口試/.test(name);
+
+/* 草稿 → 通過後自動標定稿：依命名規則自動推導（XX草稿 → 同名XX定稿，若該定稿站存在）*/
+function finalOf(name){
+  if (/草稿$/.test(name)){
+    const base = name.replace(/草稿$/, "定稿");
+    if (MILESTONES.indexOf(base) >= 0) return base;
+  }
+  return name; // 無對應定稿站 → 自身
+}
+function hasFinal(name){ return finalOf(name) !== name; }
+
 /* 審閱結果選項 */
 const RESULTS = ["大修","底線回覆","追蹤修訂","通過"];
 const RESULT_COLOR = { "大修":"#C0392B","底線回覆":"#D97A2B","追蹤修訂":"#2B7DD9","通過":"#1E9E5A" };
@@ -282,23 +322,31 @@ function cellStatus(s, name){
   const rs = roundsOf(s, name);
   if (!rs.length) return "none";
   const last = rs[rs.length-1];
-  if (!last.reply) return "review";   // 最新一輪學生交了但老師還沒回
-  return "revise";                     // 老師已回，等學生下一版
+  if (!last.reply) return "review";
+  return "revise";
 }
 /* 距今天數 */
 const daysSince = d => { if(!d) return 0; const ms = Date.now()-new Date(d+"T00:00:00").getTime(); return Math.max(0, Math.floor(ms/86400000)); };
 
-const hue = i => Math.round(i * 285 / (N - 1));
+const hue = i => Math.round(i * 285 / (Math.max(2, N) - 1));
 const cellColor = i => `hsl(${hue(i)} 82% 58%)`;
 const dimColor  = i => `hsl(${hue(i)} 55% 86%)`;
-const trackGradient = `linear-gradient(90deg, ${[0,7,14,21,28,34].map(i=>`hsl(${hue(i)} 82% 58%)`).join(",")})`;
-document.getElementById("rainbowBar").style.background = trackGradient;
+function makeTrackGradient(){
+  const stops = [];
+  const k = Math.min(6, N);
+  for (let j=0;j<k;j++){ const i = Math.round(j*(N-1)/(k-1||1)); stops.push(`hsl(${hue(i)} 82% 58%)`); }
+  return `linear-gradient(90deg, ${stops.join(",")})`;
+}
+let trackGradient = makeTrackGradient();
+function refreshDerived(){ N = MILESTONES.length; trackGradient = makeTrackGradient(); document.getElementById("rainbowBar").style.background = trackGradient; }
+refreshDerived();
 
 const fmtShort = d => { if(!d) return ""; const p = d.split("-"); return `${+p[1]}/${+p[2]}`; };
 const today = () => new Date().toISOString().slice(0,10);
 const curAcadYear = () => { const d = new Date(); const y = d.getFullYear()-1911; return d.getMonth()+1>=8 ? y : y-1; };
 const normYear = v => { const n = parseInt(v); if(!n) return null; return n>1911 ? n-1911 : n; };
-document.getElementById("subtitle").textContent = `${N} 個里程碑・目前為 ${curAcadYear()} 學年度・點擊格子管理繳交與審閱`;
+function updateSubtitle(){ document.getElementById("subtitle").textContent = `${N} 個里程碑・目前為 ${curAcadYear()} 學年度・點擊格子管理繳交與審閱`; }
+updateSubtitle();
 
 const limitInfo = s => {
   const ey = normYear(s.enrollYear);
@@ -330,12 +378,17 @@ async function apiGet(){
   const res = await fetch(API_URL);
   return res.json();
 }
-async function apiPost(action, payload){
+async function apiPost(action, payload, extra){
+  const body = Object.assign({ action, payload }, extra || {});
   const res = await fetch(API_URL, {
     method: "POST",
-    body: JSON.stringify({ action, payload }),
+    body: JSON.stringify(body),
   });
   return res.json();
+}
+
+function applyMilestones(list){
+  if (list && list.length){ MILESTONES = list.slice(); refreshDerived(); updateSubtitle(); }
 }
 
 async function loadData(){
@@ -348,6 +401,7 @@ async function loadData(){
   try {
     const data = await apiGet();
     students = data.students || [];
+    applyMilestones(data.milestones);
     render();
   } catch (e) {
     showError("⚠ 無法連線到後端，請確認網路或 Apps Script 部署狀態，再按「重新整理」。");
@@ -360,7 +414,9 @@ async function doAction(action, payload){
   showSaving(true);
   try {
     const data = await apiPost(action, payload);
-    if (data.students){ students = data.students; render(); }
+    if (data.students){ students = data.students; }
+    if (data.milestones){ applyMilestones(data.milestones); }
+    if (data.students){ render(); }
     showError("");
   } catch (e) {
     showError("⚠ 儲存失敗，資料可能未同步，請按「重新整理」確認後再試一次。");
@@ -371,7 +427,7 @@ async function doAction(action, payload){
 
 /* ── 進度計算 ── */
 const maxIdx = s => { let m = -1; MILESTONES.forEach((name,i)=>{ if(s.dates && s.dates[name]) m = i; }); return m; };
-const isDone = s => !!(s.dates && s.dates["完稿"]);
+const isDone = s => { const last = MILESTONES[MILESTONES.length-1]; return !!(s.dates && last && s.dates[last]); };
 
 /* ── 操作 ── */
 function addStudent(){
@@ -397,7 +453,7 @@ function openReviewModal(id, mi){
   const name = MILESTONES[mi];
   $("rvColorbar").style.background = cellColor(mi);
   $("rvStudent").textContent = s ? s.name : "";
-  $("rvMilestone").textContent = `第 ${mi+1} 站・${name}${ORAL.has(name) ? " 🎤" : ""}`;
+  $("rvMilestone").textContent = `第 ${mi+1} 站・${name}${isOral(name) ? " 🎤" : ""}`;
 
   // 歷史來回
   const rs = roundsOf(s, name);
@@ -442,8 +498,8 @@ function openReviewModal(id, mi){
   $("rvSubmitDate").value = today();
 
   // 手動設定定稿/通過
-  const finalName = DRAFT_TO_FINAL[name] || name;
-  const hint = DRAFT_TO_FINAL[name]
+  const finalName = finalOf(name);
+  const hint = hasFinal(name)
     ? `此站按「通過」會自動標記「${finalName}」；也可在此手動設定其日期。`
     : `此站無對應定稿站，於此手動設定通過/完成日期。`;
   $("rvManualHint").textContent = hint;
@@ -479,7 +535,7 @@ function submitReply(){
   const reply = $("rvReplyDate").value;
   if (!reply){ alert("請填回覆日期"); return; }
   if (!rvSelectedResult){ alert("請選擇審閱結果"); return; }
-  const finalName = DRAFT_TO_FINAL[name] || name;
+  const finalName = finalOf(name);
   doAction("replyReview", {
     id: reviewCtx.id, milestone: name,
     reply, result: rvSelectedResult, note: $("rvNote").value.trim(),
@@ -491,7 +547,7 @@ function submitReply(){
 function submitManualDate(){
   if (!reviewCtx) return;
   const name = MILESTONES[reviewCtx.mi];
-  const finalName = DRAFT_TO_FINAL[name] || name;
+  const finalName = finalOf(name);
   const d = $("rvManualDate").value;
   if (!d) return;
   doAction("setDate", { id: reviewCtx.id, milestone: finalName, date: d });
@@ -500,7 +556,7 @@ function submitManualDate(){
 function clearManualDate(){
   if (!reviewCtx) return;
   const name = MILESTONES[reviewCtx.mi];
-  const finalName = DRAFT_TO_FINAL[name] || name;
+  const finalName = finalOf(name);
   doAction("clearDate", { id: reviewCtx.id, milestone: finalName });
   closeModals();
 }
@@ -537,8 +593,118 @@ function confirmDelete(){
 }
 function setArchived(id, val){ doAction("setArchived", { id, archived: val }); }
 
+/* ── 里程碑設定 ── */
+let msDraft = [];            // 編輯中的里程碑草稿
+let teacherCode = localStorage.getItem("thesis-teacher-code") || "";
+
+function openMilestoneSettings(){
+  $("msCodeErr").style.display = "none";
+  if (teacherCode){
+    // 已驗證過（本機記住），直接進編輯
+    $("msCodeBox").style.display = "none";
+    $("msEditBox").style.display = "block";
+    msDraft = MILESTONES.slice();
+    renderMsList();
+  } else {
+    $("msCodeBox").style.display = "block";
+    $("msEditBox").style.display = "none";
+    $("msCode").value = "";
+  }
+  $("msOverlay").classList.add("show");
+  setTimeout(()=>{ if(!teacherCode) $("msCode").focus(); }, 100);
+}
+
+async function verifyTeacherCode(){
+  const code = $("msCode").value.trim();
+  if (!code) return;
+  showSaving(true);
+  try {
+    const data = await apiPost("verifyTeacher", {}, { teacherCode: code });
+    if (data.ok){
+      teacherCode = code;
+      localStorage.setItem("thesis-teacher-code", code);
+      $("msCodeBox").style.display = "none";
+      $("msEditBox").style.display = "block";
+      msDraft = MILESTONES.slice();
+      renderMsList();
+    } else {
+      $("msCodeErr").style.display = "block";
+    }
+  } catch (e){
+    $("msCodeErr").textContent = "無法連線後端，請稍後再試。";
+    $("msCodeErr").style.display = "block";
+  } finally { showSaving(false); }
+}
+
+function renderMsList(){
+  const el = $("msList");
+  el.innerHTML = msDraft.map((m, i) => `
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--line)">
+      <span style="width:26px;text-align:right;color:#A6ABBC;font-size:12px">${i+1}</span>
+      <input value="${esc(m)}" onchange="msRename(${i}, this.value)" style="flex:1;padding:6px 10px">
+      <button class="iconbtn" title="上移" onclick="msMove(${i},-1)" ${i===0?'disabled style="opacity:.3"':''}>▲</button>
+      <button class="iconbtn" title="下移" onclick="msMove(${i},1)" ${i===msDraft.length-1?'disabled style="opacity:.3"':''}>▼</button>
+      <button class="iconbtn" title="刪除" style="color:#C0392B" onclick="msDelete(${i})">✕</button>
+    </div>`).join("");
+}
+function msRename(i, v){ msDraft[i] = v.trim() || msDraft[i]; }
+function msMove(i, dir){
+  const j = i + dir;
+  if (j < 0 || j >= msDraft.length) return;
+  const t = msDraft[i]; msDraft[i] = msDraft[j]; msDraft[j] = t;
+  renderMsList();
+}
+function msDelete(i){
+  const name = msDraft[i];
+  if (confirm(`確定刪除「${name}」？\n所有學生在此站的日期與審閱紀錄將一併移除，無法復原。`)){
+    msDraft.splice(i, 1);
+    renderMsList();
+  }
+}
+function msAdd(){
+  const v = $("msNewName").value.trim();
+  if (!v) return;
+  if (msDraft.indexOf(v) >= 0){ alert("已有同名里程碑"); return; }
+  msDraft.push(v);
+  $("msNewName").value = "";
+  renderMsList();
+}
+function msRestoreDefault(){
+  if (confirm("還原成預設 35 站？\n這會覆蓋目前的里程碑清單（學生已填、且在預設站名中的日期會保留；不在預設清單中的自訂站資料會移除）。")){
+    msDraft = DEFAULT_MILESTONES.slice();
+    renderMsList();
+  }
+}
+function msSave(){
+  // 去重、去空白
+  const seen = {}, clean = [];
+  msDraft.forEach(x=>{ const v = String(x).trim(); if (v && !seen[v]){ seen[v]=1; clean.push(v); } });
+  if (!clean.length){ alert("至少要保留一個里程碑"); return; }
+  if (!confirm(`確定儲存？共 ${clean.length} 站。\n已刪除的站，其學生日期與審閱紀錄將被移除。`)) return;
+  doAction2("setMilestones", { milestones: clean }, { teacherCode });
+  closeModals();
+}
+/* 帶 teacherCode 的 doAction */
+async function doAction2(action, payload, extra){
+  showSaving(true);
+  try {
+    const data = await apiPost(action, payload, extra);
+    if (data.error === "bad_teacher_code"){
+      teacherCode = ""; localStorage.removeItem("thesis-teacher-code");
+      showError("⚠ 老師設定碼失效，請重新開啟里程碑設定並輸入。");
+      return;
+    }
+    if (data.students){ students = data.students; }
+    if (data.milestones){ applyMilestones(data.milestones); }
+    render();
+    showError("");
+  } catch (e){
+    showError("⚠ 儲存失敗，請按「重新整理」確認後再試。");
+  } finally { showSaving(false); }
+}
+
 function closeModals(){
-  ["reviewOverlay","infoOverlay","delOverlay"].forEach(x=>$(x).classList.remove("show"));
+  ["reviewOverlay","infoOverlay","delOverlay","msOverlay"].forEach(x=>$(x).classList.remove("show"));
   reviewCtx = null; editingInfoId = null; deletingId = null; rvSelectedResult = "";
 }
 
@@ -620,7 +786,7 @@ function rowHtml(s, isArch){
     const name = MILESTONES[i];
     const d = s.dates ? s.dates[name] : null;
     const inTrail = i <= mi;
-    const oral = ORAL.has(name);
+    const oral = isOral(name);
     const st = cellStatus(s, name);
     const rs = roundsOf(s, name);
     const rn = rs.length;
@@ -727,9 +893,9 @@ function render(){
     let head = `<th class="namecol"><span style="font-size:12px;color:#8B93A5">學生 / 里程碑</span></th>`;
     MILESTONES.forEach((m,i)=>{
       head += `<th><div class="mhead">
-        <span class="mname${ORAL.has(m) ? " oral" : ""}">${esc(m)}</span>
+        <span class="mname${isOral(m) ? " oral" : ""}">${esc(m)}</span>
         <span class="mdot" style="background:${cellColor(i)}"></span>
-        <span class="mnum">${ORAL.has(m) ? "🎤" : i+1}</span></div></th>`;
+        <span class="mnum">${isOral(m) ? "🎤" : i+1}</span></div></th>`;
     });
     let body = sorted.map(s=>rowHtml(s,false)).join("");
     if (showArchived) body += archived.map(s=>rowHtml(s,true)).join("");
